@@ -22,6 +22,7 @@ typedef struct Node {
 
 void append_int(Node **root, char *name) {
     Node *new_node = malloc(sizeof(Node));
+    Node *curr;
     if (new_node == NULL) {
         exit(1);
     }
@@ -32,7 +33,7 @@ void append_int(Node **root, char *name) {
     if (*root == NULL) {
         *root = new_node;
     } else {
-        Node *curr = *root;
+        curr = *root;
         while (curr->next != NULL) {
             curr = curr->next;
         }
@@ -92,7 +93,7 @@ int token(char *line, char ***tokens) {
     char *token = strtok(line, " \t\n;=");
     int tokenCount = 0;
 
-    *tokens = (char **)malloc(sizeof(char *));
+    *tokens = (char **)malloc(sizeof(char *) * 100);
     
     // Save each token in the array
     while (token != NULL && tokenCount < 100) {
@@ -114,8 +115,9 @@ int token(char *line, char ***tokens) {
 
 
 
+
 int main() {
-    FILE *file=fopen( "calculator.txt","r+");
+    FILE *file=fopen( "calculator.txt","r");
     Node *root = NULL;
     char **tokens;
     char *line;
@@ -127,7 +129,6 @@ int main() {
         i=0;
         line = (char *)malloc(sizeof(char));
         while ((c = getc(file)) != ';' &&  c != EOF) {
-            printf("%c",c);
             line[i] = c;
             i++;
             line = (char *)realloc(line, (i + 1) * sizeof(char));
@@ -135,9 +136,6 @@ int main() {
 
         line[i] = '\0';
         token(line,&tokens);
-        for(i=0;tokens[i] != NULL;i++){
-            printf("\n%s",tokens[i]);
-        }
         free(line);
         int p = ver(tokens[0]);
 
@@ -147,19 +145,16 @@ int main() {
            // Input(&root,tokens);
         }
 
-        if (root != NULL) {
-            for (curr = root; curr != NULL; curr = curr->next) {
-                if (curr->type == INTEGER) {
-                    printf("\n%s:%d ", curr->var_name, curr->var.INT);
-                }
-                // Add similar handling for FLOAT case if needed
-            }
-        }
-        Deallocate(root);
         for(i=0;tokens[i] != NULL;i++){
             free(tokens[i]);
         }free(tokens);
         getc(file);
     }
+    curr=root;
+               for (curr = root; curr != NULL; curr = curr->next) {
+                    printf("\n%s:%d ", curr->var_name, curr->var.INT);
+               }
+                // Add similar handling for FLOAT case if needed
+    Deallocate(root);
     return 0;
 }
