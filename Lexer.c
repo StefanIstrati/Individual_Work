@@ -20,19 +20,21 @@ typedef struct Node {
     struct Node *next;
 } Node;
 
-void append_int(Node **root, int value, char name[]) {
+void append_int(Node ***root, char *name) {
     Node *new_node = malloc(sizeof(Node));
+    Node *curr;
     if (new_node == NULL) {
         exit(1);
     }
     new_node->next = NULL;
-    new_node->var.INT = value;
+    new_node->var.INT = 0;
     new_node->type = INTEGER;
-    new_node->var_name = strdup(name);  // Allocate memory for the name
-    if (*root == NULL) {
-        *root = new_node;
+    new_node->var_name = strdup(name);
+    printf("%s",new_node->var_name); // Allocate memory for the name
+    if (**root == NULL) {
+        **root = new_node;
     } else {
-        Node *curr = *root;
+        curr = **root;
         while (curr->next != NULL) {
             curr = curr->next;
         }
@@ -40,46 +42,33 @@ void append_int(Node **root, int value, char name[]) {
     }
 }
 
-Node *Var(int n, char line[n]) {
-    Node *root = NULL;
+void Var(Node **root, char **token) {
     int i;
-    for (i = 0; i < n; i++) {
-        if (line[i] == ' ') {
-            break;
-        }
+    if(strcmp(token[1], "int") == 0){
+        for(i=2;token[i] != NULL; i++){
+            append_int(&root,token[i]);
     }
-    i++;
-    int k;
-    k = 0;
-    char t[8];
-    while (line[i] != ' ') {
-        t[k] = line[i];
-        k++;
-        i++;
     }
-    i++;
-    i++;
-    k = 0;
-    char *name;
-    char c;
-    name = (char *)malloc(sizeof(char));
-    while (line[i] != ';') {
-        while ((c = line[i]) != ',') {
-            name[k] = c;
-            i++;
-            k++;
-            name = (char *)realloc(name, (k + 1) * sizeof(char));
-        }
-        if (strcmp(t, "int") == 0) {
-            append_int(&root, 0, name);
-        }else{
-            printf("ERROR");
-        }
-    }
-    return root;
 }
 
-int ver(char index[20]) {
+/*void Input(Node **root,char **token){
+    int i=0;
+    if (root != NULL) {
+            for (curr = root; curr != NULL; curr = curr->next) {
+                if (curr->var_name == token[1]) {
+                    i++;
+
+                }
+                if (i == 0){
+                    printf("Variable not declared:%s",token[1]);
+                }
+            }
+        }
+
+
+}*/
+
+int ver(char *index) {
     if (strcmp(index, "var") == 0) {
         return 1;
     } else if (strcmp(index, "input") == 0) {
@@ -101,43 +90,76 @@ void Deallocate(Node *root) {
     }
 }
 
-int main() {
-    char *line;
-    int i = 0;
-    char c;
-    char index[20] = "";
-    Node *curr;
-    line = (char *)malloc(sizeof(char));
+int token(char *line, char ***tokens) {
+    char *token = strtok(line, " \t\n;=");
+    int tokenCount = 0;
 
-    while ((c = getc(stdin)) != ';') {
-        line[i] = c;
-        i++;
-        line = (char *)realloc(line, (i + 1) * sizeof(char));
+    *tokens = (char **)malloc(sizeof(char *) * 100);
+    
+    // Save each token in the array
+    while (token != NULL && tokenCount < 100) {
+        // Save the token in the array
+        (*tokens)[tokenCount] = strdup(token);
+
+        // Get the next token
+        token = strtok(NULL, " \t\n;,");
+        tokenCount++;
+
+        // Reallocate memory for the next token
+        *tokens = (char **)realloc(*tokens, (tokenCount + 1) * sizeof(char *));
     }
 
-    line[i] = '\0';
-    for (i = 0; i < strlen(line); i++) {
-        if (line[i] == ' ') {
-            break;
-        }
-        index[i] = line[i];
-    }
-    free(line);
-    printf("\n%s\n", index);
-    int p = ver(index);
-    Node *root = NULL;
-    if (p == 1) {
-        root = Var(strlen(line), line);
-    }
-    if (root != NULL) {
-        for (curr = root; curr != NULL; curr = curr->next) {
-            if (curr->type == INTEGER) {
-                printf("%d ", curr->var.INT);
-            }
-            // Handle FLOAT case here if needed
-        }
-    }
-    Deallocate(root);
-    return 0;
+    // Null-terminate the array of tokens
+    (*tokens)[tokenCount] = NULL;
+    return tokenCount;
 }
 
+
+
+
+int main() {
+    FILE *file=fopen( "calculator.txt","r");
+    Node *root = NULL;
+    char **tokens;
+    char *line;
+    int i = 0;
+    char c,d;
+    char index[20] = "";
+    Node *curr;
+    while(getc(file) != EOF){
+        i=0;
+        line = (char *)malloc(sizeof(char));
+        while ((c = getc(file)) != ';' &&  c != EOF) {
+            printf("%c",c);
+            line[i] = c;
+            i++;
+            line = (char *)realloc(line, (i + 1) * sizeof(char));
+        }
+
+        line[i] = '\0';
+        token(line,&tokens);
+        for(i=0;tokens[i] != NULL;i++){
+            printf("\n%s",tokens[i]);
+        }
+        free(line);
+        int p = ver(tokens[0]);
+
+        if (p == 1) {
+            Var(&root,tokens);
+        }else if(p == 2){
+           // Input(&root,tokens);
+        }
+
+        Deallocate(root);
+        for(i=0;tokens[i] != NULL;i++){
+            free(tokens[i]);
+        }free(tokens);
+        getc(file);
+    }
+    curr=root;
+               
+                    printf("\n%s:%d ", curr->var_name, curr->var.INT);
+                
+                // Add similar handling for FLOAT case if needed
+    return 0;
+}
