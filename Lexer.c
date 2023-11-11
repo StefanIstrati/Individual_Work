@@ -72,26 +72,34 @@ void Var(Node **root, char **token) {
             append_float(root,token[i]);
         }
     }else{
-        printf("Undefined type of variables error: %s",token[1]);
+        printf("Undefined type of variables ");
+    }
+}
+ 
+void Input(Node **root, char **token) {
+    int i;
+    Node *curr;
+    curr = *root;
+    while (curr != NULL) {
+        if (strcmp(curr->var_name, token[1]) == 0) {
+            if (curr->type == INTEGER) {
+                curr->var.INT = atoi(token[3]);
+                break;
+            } else if (curr->type == FLOAT) {  
+                curr->var.FLOAT = atof(token[3]);
+                break;
+            } else {
+                printf("Undefined variable %s", token[2]);
+                break;
+            }
+        }
+        curr = curr->next;
+    }
+    if (curr == NULL) {
+        printf("Undefined variable %s", token[2]);
     }
 }
 
-/*void Input(Node **root,char **token){
-    int i=0;
-    if (root != NULL) {
-            for (curr = root; curr != NULL; curr = curr->next) {
-                if (curr->var_name == token[1]) {
-                    i++;
-
-                }
-                if (i == 0){
-                    printf("Variable not declared:%s",token[1]);
-                }
-            }
-        }
-
-
-}*/
 
 int ver(char *index) {
     if (strcmp(index, "var") == 0) {
@@ -168,7 +176,7 @@ int main() {
         if (p == 1) {
             Var(&root,tokens);
         }else if(p == 2){
-           // Input(&root,tokens);
+            Input(&root,tokens);
         }
 
         for(i=0;tokens[i] != NULL;i++){
@@ -177,9 +185,13 @@ int main() {
         getc(file);
     }
     curr=root;
-               for (curr = root; curr != NULL; curr = curr->next) {
-                    printf("\n%s:%d %s", curr->var_name, curr->var.FLOAT, curr->type);
-               }
+                for (curr = root; curr != NULL; curr = curr->next) {
+                    if (curr->type == INTEGER){
+                        printf("\n%s:%d INTEGER", curr->var_name, curr->var.INT);
+                    }else{
+                        printf("\n%s:%d FLOAT", curr->var_name, curr->var.FLOAT);
+                    }
+                }
                 // Add similar handling for FLOAT case if needed
     Deallocate(root);
     return 0;
