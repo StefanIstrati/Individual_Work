@@ -20,7 +20,7 @@ typedef struct Node {
     struct Node *next;
 } Node;
 
-void append_int(Node ***root, char *name) {
+void append_int(Node **root, char *name) {
     Node *new_node = malloc(sizeof(Node));
     Node *curr;
     if (new_node == NULL) {
@@ -29,12 +29,31 @@ void append_int(Node ***root, char *name) {
     new_node->next = NULL;
     new_node->var.INT = 0;
     new_node->type = INTEGER;
-    new_node->var_name = strdup(name);
-    printf("%s",new_node->var_name); // Allocate memory for the name
-    if (**root == NULL) {
-        **root = new_node;
+    new_node->var_name = strdup(name); // Allocate memory for the name
+    if (*root == NULL) {
+        *root = new_node;
     } else {
-        curr = **root;
+        curr = *root;
+        while (curr->next != NULL) {
+            curr = curr->next;
+        }
+        curr->next = new_node;
+    }
+}
+void append_float(Node **root, char *name) {
+    Node *new_node = malloc(sizeof(Node));
+    Node *curr;
+    if (new_node == NULL) {
+        exit(1);
+    }
+    new_node->next = NULL;
+    new_node->var.FLOAT = 0;
+    new_node->type = FLOAT;
+    new_node->var_name = strdup(name); // Allocate memory for the name
+    if (*root == NULL) {
+        *root = new_node;
+    } else {
+        curr = *root;
         while (curr->next != NULL) {
             curr = curr->next;
         }
@@ -46,8 +65,14 @@ void Var(Node **root, char **token) {
     int i;
     if(strcmp(token[1], "int") == 0){
         for(i=2;token[i] != NULL; i++){
-            append_int(&root,token[i]);
-    }
+            append_int(root,token[i]);
+        }
+    }else if(strcmp(token[1], "float") == 0){
+        for(i=2;token[i] != NULL; i++){
+            append_float(root,token[i]);
+        }
+    }else{
+        printf("Undefined type of variables error: %s",token[1]);
     }
 }
 
@@ -130,7 +155,6 @@ int main() {
         i=0;
         line = (char *)malloc(sizeof(char));
         while ((c = getc(file)) != ';' &&  c != EOF) {
-            printf("%c",c);
             line[i] = c;
             i++;
             line = (char *)realloc(line, (i + 1) * sizeof(char));
@@ -138,9 +162,6 @@ int main() {
 
         line[i] = '\0';
         token(line,&tokens);
-        for(i=0;tokens[i] != NULL;i++){
-            printf("\n%s",tokens[i]);
-        }
         free(line);
         int p = ver(tokens[0]);
 
@@ -150,16 +171,16 @@ int main() {
            // Input(&root,tokens);
         }
 
-        Deallocate(root);
         for(i=0;tokens[i] != NULL;i++){
             free(tokens[i]);
         }free(tokens);
         getc(file);
     }
     curr=root;
-               
-                    printf("\n%s:%d ", curr->var_name, curr->var.INT);
-                
+               for (curr = root; curr != NULL; curr = curr->next) {
+                    printf("\n%s:%d %s", curr->var_name, curr->var.FLOAT, curr->type);
+               }
                 // Add similar handling for FLOAT case if needed
+    Deallocate(root);
     return 0;
 }
