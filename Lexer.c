@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 union d_type {
     int INT;
@@ -19,6 +20,173 @@ typedef struct Node {
     DATA_TYPE type;
     struct Node *next;
 } Node;
+
+typedef struct {
+    double result;
+    char* error;
+} EvaluationResult;
+
+typedef enum {
+    NUMBER,
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE,
+    LPAREN,  // Left parenthesis (
+    RPAREN   // Right parenthesis )
+} TokenType;
+
+typedef struct {
+    TokenType type;
+    union {
+        double number;
+        char operator;
+    } value;
+} Token;
+
+typedef struct {
+    const char* input;
+    size_t position;
+    char current_char;
+    Token current_token;
+} Lexer;
+
+void lexer_init(Lexer* lexer, const char* input);
+Token lexer_get_next_token(Lexer* lexer);
+
+double factor(Lexer* lexer);
+double term(Lexer* lexer);
+double expr(Lexer* lexer);
+
+void lexer_init(Lexer* lexer, const char* input) {
+    lexer->input = input;
+    lexer->position = 0;
+    lexer->current_char = input[0];
+    lexer->current_token.type = NUMBER;
+    lexer->current_token.value.number = 0.0;
+}
+
+Token lexer_get_next_token(Lexer* lexer) {
+    // Skip whitespace
+    while (lexer->current_char != '\0' && lexer->current_char == ' ') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+    }
+
+    if (lexer->current_char == '\0') {
+        return (Token){.type = 0};
+    }
+
+    if (isdigit(lexer->current_char) || lexer->current_char == '.') {
+        // Tokenize a number
+        double number = 0.0;
+        while (isdigit(lexer->current_char) || lexer->current_char == '.') {
+            number = number * 10 + (lexer->current_char - '0');
+            lexer->position++;
+            lexer->current_char = lexer->input[lexer->position];
+        }
+        return (Token){.type = NUMBER, .value.number = number};
+    } else if (lexer->current_char == '+') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = ADD, .value.operator = '+'};
+    } else if (lexer->current_char == '-') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = SUBTRACT, .value.operator = '-'};
+    } else if (lexer->current_char == '*') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = MULTIPLY, .value.operator = '*'};
+    } else if (lexer->current_char == '/') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = DIVIDE, .value.operator = '/'};
+    } else if (lexer->current_char == '(') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = LPAREN, .value.operator = '('};
+    } else if (lexer->current_char == ')') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = RPAREN, .value.operator = ')'};
+    } else {
+        printf("Error: Invalid character found: %c\n", lexer->current_char);
+        exit(1);
+    }
+}
+
+double factor(Lexer* lexer) {
+    Token token = lexer->current_token;
+    if (token.type == NUMBER) {
+        lexer->current_token = lexer_get_next_token(lexer);
+        return token.value.number;
+    } else if (token.type == LPAREN) {
+        lexer->current_token = lexer_get_next_token(lexer);
+        double result = expr(lexer);
+        if (lexer->current_token.type != RPAREN) {
+            printf("Error: Unmatched parenthesis\n");
+            exit(1);
+        }
+        lexer->current_token = lexer_get_next_token(lexer); // Consume the closing parenthesis
+        return result;
+    } else {
+        printf("Error: Invalid factor\n");
+        exit(1);
+    }
+}
+
+double term(Lexer* lexer) {
+    double result = factor(lexer);
+
+    while (lexer->current_token.type == MULTIPLY || lexer->current_token.type == DIVIDE) {
+        Token token = lexer->current_token;
+        if (token.type == MULTIPLY) {
+            lexer->current_token = lexer_get_next_token(lexer);
+            result *= factor(lexer);
+        } else if (token.type == DIVIDE) {
+            lexer->current_token = lexer_get_next_token(lexer);
+            double divisor = factor(lexer);
+            if (divisor == 0) {
+                printf("Error: Division by zero\n");
+                exit(1);
+            }
+            result /= divisor;
+        }
+    }
+    return result;
+}
+
+double expr(Lexer* lexer) {
+    double result = term(lexer);
+
+    while (lexer->current_token.type == ADD || lexer->current_token.type == SUBTRACT) {
+        Token token = lexer->current_token;
+        if (token.type == ADD) {
+            lexer->current_token = lexer_get_next_token(lexer);
+            result += term(lexer);
+        } else if (token.type == SUBTRACT) {
+            lexer->current_token = lexer_get_next_token(lexer);
+            result -= term(lexer);
+        }
+    }
+    return result;
+}
+
+EvaluationResult evaluate_expression(Lexer* lexer) {
+    EvaluationResult result;
+    result.error = NULL;
+
+    lexer->current_token = lexer_get_next_token(lexer);
+    result.result = expr(lexer);
+
+    // Check if there are any remaining tokens, which indicates an error in the input expression.
+    if (lexer->current_token.type != 0) {
+        result.error = "Invalid expression syntax";
+    }
+
+    return result;
+}
 
 void append_int(Node **root, char *name) {
     Node *new_node = malloc(sizeof(Node));
@@ -121,7 +289,20 @@ void Calc(Node **root, char **token) {
     }
 
     // Print or process the expression as needed
-    printf("%s", expr);
+
+    size_t len = strlen(expr);
+    if (len > 0 && expr[len - 1] == '\n') {
+        expr[len - 1] = '\0';
+    }
+
+    Lexer lexer;
+    lexer_init(&lexer, expr);
+    EvaluationResult result = evaluate_expression(&lexer);
+    if (result.error) {
+        printf("Error: %s\n", result.error);
+    } else {
+        printf("Result: %lf\n", result.result);
+    }
 
     // Free the allocated memory
     free(expr);
@@ -201,9 +382,9 @@ int main() {
             if(c == EOF){
             break;
             }else{
-            line[i] = c;
-            i++;
-            line = (char *)realloc(line, (i + 1) * sizeof(char));
+                line[i] = c;
+                i++;
+                line = (char *)realloc(line, (i + 1) * sizeof(char));
             }
         }
         if(c == EOF){
