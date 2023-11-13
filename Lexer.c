@@ -20,7 +20,7 @@ typedef struct Node {
     struct Node *next;
 } Node;
 
-void append_int(Node ***root, char *name) {
+void append_int(Node **root, char *name) {
     Node *new_node = malloc(sizeof(Node));
     Node *curr;
     if (new_node == NULL) {
@@ -29,12 +29,31 @@ void append_int(Node ***root, char *name) {
     new_node->next = NULL;
     new_node->var.INT = 0;
     new_node->type = INTEGER;
-    new_node->var_name = strdup(name);
-    printf("%s",new_node->var_name); // Allocate memory for the name
-    if (**root == NULL) {
-        **root = new_node;
+    new_node->var_name = strdup(name); // Allocate memory for the name
+    if (*root == NULL) {
+        *root = new_node;
     } else {
-        curr = **root;
+        curr = *root;
+        while (curr->next != NULL) {
+            curr = curr->next;
+        }
+        curr->next = new_node;
+    }
+}
+void append_float(Node **root, char *name) {
+    Node *new_node = malloc(sizeof(Node));
+    Node *curr;
+    if (new_node == NULL) {
+        exit(1);
+    }
+    new_node->next = NULL;
+    new_node->var.FLOAT = 0;
+    new_node->type = FLOAT;
+    new_node->var_name = strdup(name); // Allocate memory for the name
+    if (*root == NULL) {
+        *root = new_node;
+    } else {
+        curr = *root;
         while (curr->next != NULL) {
             curr = curr->next;
         }
@@ -46,27 +65,77 @@ void Var(Node **root, char **token) {
     int i;
     if(strcmp(token[1], "int") == 0){
         for(i=2;token[i] != NULL; i++){
-            append_int(&root,token[i]);
+            append_int(root,token[i]);
+        }
+    }else if(strcmp(token[1], "float") == 0){
+        for(i=2;token[i] != NULL; i++){
+            append_float(root,token[i]);
+        }
+    }else{
+        printf("Undefined type of variables ");
     }
+}
+ 
+void Input(Node **root, char **token) {
+    int i;
+    Node *curr;
+    curr = *root;
+    while (curr != NULL) {
+        if (strcmp(curr->var_name, token[1]) == 0) {
+            if (curr->type == INTEGER) {
+                curr->var.INT = atoi(token[3]);
+                break;
+            } else if (curr->type == FLOAT) {  
+                curr->var.FLOAT = atof(token[3]);
+                break;
+            } else {
+                printf("Undefined variable %s", token[1]);
+                break;
+            }
+        }
+        curr = curr->next;
+    }
+    if (curr == NULL) {
+        printf("Undefined variable %s", token[1]);
     }
 }
 
-/*void Input(Node **root,char **token){
-    int i=0;
-    if (root != NULL) {
-            for (curr = root; curr != NULL; curr = curr->next) {
-                if (curr->var_name == token[1]) {
-                    i++;
+void Calc(Node **root, char **token) {
+    int i;
+    Node *curr = *root;
+    char *expr = NULL;
 
-                }
-                if (i == 0){
-                    printf("Variable not declared:%s",token[1]);
-                }
-            }
-        }
+    // Calculate the length of the expression
+    int exprLength = 0;
+    for (i = 1; token[i] != NULL; i++) {
+        exprLength += strlen(token[i]);
+    }
 
+    // Allocate memory for the expression
+    expr = (char *)malloc(exprLength + 1);  // +1 for the null terminator
 
-}*/
+    // Concatenate tokens to form the expression
+    expr[0] = '\0';  // Ensure the string starts empty
+    for (i = 1; token[i] != NULL; i++) {
+        strcat(expr, token[i]);
+    }
+
+    // Print or process the expression as needed
+    printf("%s", expr);
+
+    // Free the allocated memory
+    free(expr);
+
+    // Implement the actual logic for evaluating the expression here
+    /* switch (expression) {
+        case /* constant-expression */
+            /* code 
+            break;
+
+        default:
+            break;
+    } */
+}
 
 int ver(char *index) {
     if (strcmp(index, "var") == 0) {
@@ -90,8 +159,8 @@ void Deallocate(Node *root) {
     }
 }
 
-int token(char *line, char ***tokens) {
-    char *token = strtok(line, " \t\n;=");
+void token(char *line, char ***tokens) {
+    char *token = strtok(line, " \t\n;:");
     int tokenCount = 0;
 
     *tokens = (char **)malloc(sizeof(char *) * 100);
@@ -111,7 +180,6 @@ int token(char *line, char ***tokens) {
 
     // Null-terminate the array of tokens
     (*tokens)[tokenCount] = NULL;
-    return tokenCount;
 }
 
 
@@ -126,40 +194,49 @@ int main() {
     char c,d;
     char index[20] = "";
     Node *curr;
-    while(getc(file) != EOF){
+    while(1){
         i=0;
         line = (char *)malloc(sizeof(char));
-        while ((c = getc(file)) != ';' &&  c != EOF) {
-            printf("%c",c);
+        while ((c = getc(file)) != ';') {
+            if(c == EOF){
+            break;
+            }else{
             line[i] = c;
             i++;
             line = (char *)realloc(line, (i + 1) * sizeof(char));
+            }
         }
-
+        if(c == EOF){
+            break;
+        }
         line[i] = '\0';
         token(line,&tokens);
-        for(i=0;tokens[i] != NULL;i++){
-            printf("\n%s",tokens[i]);
-        }
         free(line);
         int p = ver(tokens[0]);
 
         if (p == 1) {
             Var(&root,tokens);
         }else if(p == 2){
-           // Input(&root,tokens);
+            Input(&root,tokens);
+        }else if (p == 3){
+            Calc(&root,tokens);
         }
 
-        Deallocate(root);
         for(i=0;tokens[i] != NULL;i++){
             free(tokens[i]);
         }free(tokens);
         getc(file);
     }
+    end:
     curr=root;
-               
-                    printf("\n%s:%d ", curr->var_name, curr->var.INT);
-                
+                for (curr = root; curr != NULL; curr = curr->next) {
+                    if (curr->type == INTEGER){
+                        printf("\n%s:%d INTEGER", curr->var_name, curr->var.INT);
+                    }else{
+                        printf("\n%s:%f FLOAT", curr->var_name, curr->var.FLOAT);
+                    }
+                }
                 // Add similar handling for FLOAT case if needed
+    Deallocate(root);
     return 0;
 }
