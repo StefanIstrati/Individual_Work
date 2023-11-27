@@ -379,21 +379,12 @@ void token(char *line, char ***tokens) {
     int tokenCount = 0;
 
     *tokens = (char **)malloc(sizeof(char *) * 100);
-
-    // Save each token in the array
     while (token != NULL && tokenCount < 100) {
-        // Save the token in the array
         (*tokens)[tokenCount] = strdup(token);
-
-        // Get the next token
         token = strtok(NULL, " \t\n;,");
         tokenCount++;
-
-        // Reallocate memory for the next token
         *tokens = (char **)realloc(*tokens, (tokenCount + 1) * sizeof(char *));
     }
-
-    // Null-terminate the array of tokens
     (*tokens)[tokenCount] = NULL;
 }
 
@@ -454,7 +445,7 @@ int main() {
     FILE *file = fopen("calculator.txt", "r");
     TreeNode *root = NULL;
     char *line;
-
+    int a=0;
     while (1) {
         line = (char *)malloc(sizeof(char));
         int i = 0;
@@ -476,8 +467,16 @@ int main() {
 
         line[i] = '\0';
         Statement statement = parse_statement(line);
-        execute_statement(&root, statement);
+        if (statement.type == WHILE_LOOP){
+            a=1;
+        }
 
+        if (a == 1){
+            execute_statement(&root, statement);
+            goto label;
+        }
+        execute_statement(&root, statement);
+        label:
         for (i = 0; statement.tokens[i] != NULL; i++) {
             free(statement.tokens[i]);
         }
