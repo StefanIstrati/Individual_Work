@@ -34,7 +34,13 @@ typedef enum {
     MULTIPLY,
     DIVIDE,
     LPAREN,  // Left parenthesis (
-    RPAREN   // Right parenthesis )
+    RPAREN,   // Right parenthesis )
+    less,
+    less_eq,
+    great,
+    great_eq,
+    eq,
+    diff
 } TokenType;
 
 
@@ -44,7 +50,9 @@ typedef enum {
     ASSIGNMENT,
     CALCULATION,
     IF_STATEMENT,
-    WHILE_LOOP
+    WHILE_LOOP,
+    endWhile,
+    endif
 } StatementType;
 
 typedef struct {
@@ -53,7 +61,7 @@ typedef struct {
 } Statement;
 
 typedef struct {
-    TokenType type;
+        TokenType type;
     union {
         double number;
         char operator;
@@ -219,7 +227,23 @@ Token lexer_get_next_token(Lexer *lexer) {
         lexer->position++;
         lexer->current_char = lexer->input[lexer->position];
         return (Token){.type = RPAREN, .value.operator = ')'};
-    } else {
+    } else if (lexer->current_char == '<') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = SUBTRACT, .value.operator = '-'};
+    } else if (lexer->current_char == '>') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = MULTIPLY, .value.operator = '*'};
+    } else if (lexer->current_char == '=') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = DIVIDE, .value.operator = '/'};
+    } else if (lexer->current_char == '!') {
+        lexer->position++;
+        lexer->current_char = lexer->input[lexer->position];
+        return (Token){.type = LPAREN, .value.operator = '('};
+    }else {
         char* str_var = NULL;
         int i = 0;
         while (lexer->current_char != '.' && lexer->current_char != '+' && lexer->current_char != '-' && lexer->current_char != '*' && lexer->current_char != '/' && lexer->current_char != '(' && lexer->current_char != ')' && lexer->current_char != '\0') {
@@ -361,18 +385,6 @@ void Calc(TreeNode *root, char **token) {
     free(expr);
 }
 
-int ver(char *index) {
-    if (strcmp(index, "var") == 0) {
-        return 1;
-    } else if (strcmp(index, "input") == 0) {
-        return 2;
-    } else if (strcmp(index, "=") == 0) {
-        return 3;
-    } else {
-        printf("\nUndefined function:%s", index);
-        return 0;
-    }
-}
 
 void token(char *line, char ***tokens) {
     char *token = strtok(line, " \t\n;:");
@@ -401,9 +413,13 @@ Statement parse_statement(char *line) {
         statement.type = CALCULATION;
     } else if (strcmp(statement.tokens[0], "if") == 0) {
         statement.type = IF_STATEMENT;
-    } else if (strcmp(statement.tokens[0], "while") == 0) {
+    } else if (strcmp(statement.tokens[0], "While") == 0) {
         statement.type = WHILE_LOOP;
-    } else {
+    } else if (strcmp(statement.tokens[0], "endWhile") == 0){
+        statement.type = endWhile;
+    }else if(strcmp(statement.tokens[0], "endIf") == 0){
+        statement.type = endif;
+    }else{
         printf("Undefined");
     }
 
@@ -427,37 +443,106 @@ void execute_statement(TreeNode **root, Statement statement) {
         case WHILE_LOOP:
             // While();
             break;
+        case endWhile:
+            break;
         default:
             printf("Unsupported statement type\n");
             break;
     }
 }
 
-void While(){
-
+char *While(TreeNode **root, Statement statement) {
+    int i = 1;
+    char *condition = (char *)malloc(1);
+    condition[0] = '\0';  // Initialize an empty string
+    
+    while (statement.tokens[i] != NULL) {
+        condition = (char *)realloc(condition, strlen(condition) + strlen(statement.tokens[i]) + 1);
+        strcat(condition, statement.tokens[i]);
+        i++;
+    } 
+    
+    printf("%s", condition);
+    return condition;
 }
 
-void If(){
 
+
+bool evaluate_condition(Lexer *lexer, TreeNode *root, char *condition) {
+    lexer_init(lexer, condition, root);
+    EvaluationResult result = evaluate_expression(lexer);
+    if (result.error) {
+        printf("Error in while loop condition: %s\n", result.error);
+        exit(1);
+    }
+    printf("%d",result.result);
+    return result.result != 0.0;
+}
+
+// Modify the While_execute function to handle while loops
+void While_execute(char **while_if, int count, TreeNode **root) {
+    Lexer lexer;
+    for (int i = 0; i < count; i++) {
+        Statement statement = parse_statement(while_if[i]);
+
+        // Check if it's the condition of a while loop
+        if (statement.type == WHILE_LOOP) {
+            // Get the condition from the statement
+            char *condition = While(root, statement);
+            printf("%s",condition);
+            // Evaluate the condition
+            while (evaluate_condition(&lexer, *root, condition)) {
+                // Execute the body of the while loop
+                for (i++; i < count && strcmp(while_if[i], "endWhile") != 0; i++) {
+                    Statement loopStatement = parse_statement(while_if[i]);
+                    execute_statement(root, loopStatement);
+
+                    // Free allocated memory for loop statement tokens
+                    for (int j = 0; loopStatement.tokens[j] != NULL; j++) {
+                        free(loopStatement.tokens[j]);
+                    }
+                    free(loopStatement.tokens);
+                }
+                // Skip 'endWhile' statement
+                i++;
+            }
+
+            // Free memory for the condition
+            free(condition);
+        } else {
+            // Execute non-while-loop statements
+            execute_statement(root, statement);
+        }
+
+        // Free allocated memory for tokens
+        for (int j = 0; statement.tokens[j] != NULL; j++) {
+            free(statement.tokens[j]);
+        }
+        free(statement.tokens);
+    }
 }
 
 int main() {
     FILE *file = fopen("calculator.txt", "r");
     TreeNode *root = NULL;
     char *line;
-    int a=0;
+    int a = 0;
+    char ***while_if = NULL;
+    int j = 0;
+    char *condition = NULL;
     while (1) {
         line = (char *)malloc(sizeof(char));
         int i = 0;
         char c;
-
-        while ((c = getc(file)) != ';') {
-            if (c == EOF) {
-                break;
-            } else {
-                line[i] = c;
-                i++;
-                line = (char *)realloc(line, (i + 1) * sizeof(char));
+        if (a == 0){
+            while ((c = getc(file)) != ';') {
+                if (c == EOF) {
+                    break;
+                } else {
+                    line[i] = c;
+                    i++;
+                    line = (char *)realloc(line, (i + 1) * sizeof(char));
+                }
             }
         }
 
@@ -466,29 +551,58 @@ int main() {
         }
 
         line[i] = '\0';
-        Statement statement = parse_statement(line);
-        if (statement.type == WHILE_LOOP){
-            a=1;
+        while (a != 0){
+            while ((c = getc(file)) != ';') {
+                if (c == EOF) {
+                    break;
+                } else {
+                    line[i] = c;
+                    i++;
+                    line = (char *)realloc(line, (i + 1) * sizeof(char));
+                }
+            }
+            if (a == 1) {
+                while_if = (char ***)realloc(while_if, (j + 1) * sizeof(char **));
+                while_if[j] = (char **)malloc((i + 1) * sizeof(char *));
+                for (int k = 0; k < i; k++) {
+                    while_if[j][k] = strdup(&line[k]);
+                }
+                while_if[j][i] = NULL;
+                j++;
+                goto label;
+            }
         }
-
-        if (a == 1){
-            execute_statement(&root, statement);
-            goto label;
+        Statement statement = parse_statement(line);
+        if (statement.type == WHILE_LOOP) {
+            a = 1;
+            condition = While(&root,statement);
         }
         execute_statement(&root, statement);
         label:
-        for (i = 0; statement.tokens[i] != NULL; i++) {
-            free(statement.tokens[i]);
+        if (a == 1){
+            statement = parse_statement(line);
+            if (statement.type == endWhile){
+                a = 3;
+            }
         }
-
-        free(statement.tokens);
         free(line);
         getc(file);
     }
-    // Print the variables in the binary tree
-    printf("\nVariables in the binary tree:");
+
+    if (a == 3) {
+        While_execute(*while_if, j, &root);
+    }
+
+    // Free allocated memory for statements
+    for (int i = 0; i < j; i++) {
+        for (int k = 0; while_if[i][k] != NULL; k++) {
+            free(while_if[i][k]);
+        }
+        free(while_if[i]);
+    }
+    free(while_if);
 
     Deallocate(root);
-    fclose(file);   
+    fclose(file);
     return 0;
 }
