@@ -24,6 +24,7 @@ typedef struct TreeNode {
 
 typedef struct {
     double result;
+    bool condition_res;
     char *error;
 } EvaluationResult;
 
@@ -33,8 +34,8 @@ typedef enum {
     SUBTRACT,
     MULTIPLY,
     DIVIDE,
-    LPAREN,  // Left parenthesis (
-    RPAREN,   // Right parenthesis )
+    LPAREN, 
+    RPAREN,  
     less,
     less_eq,
     great,
@@ -98,7 +99,7 @@ double factor(Lexer *lexer) {
         // Check and consume the closing parenthesis ')'
         if (lexer->current_token.type == RPAREN) {
             lexer->current_token = lexer_get_next_token(lexer); // consume ')'
-        } else {
+        }else{
             printf("Error: Missing closing parenthesis\n");
             exit(1);
         }
@@ -230,23 +231,23 @@ Token lexer_get_next_token(Lexer *lexer) {
     } else if (lexer->current_char == '<') {
         lexer->position++;
         lexer->current_char = lexer->input[lexer->position];
-        return (Token){.type = SUBTRACT, .value.operator = '-'};
+        return (Token){.type = less, .value.operator = '<'};
     } else if (lexer->current_char == '>') {
         lexer->position++;
         lexer->current_char = lexer->input[lexer->position];
-        return (Token){.type = MULTIPLY, .value.operator = '*'};
+        return (Token){.type = great, .value.operator = '>'};
     } else if (lexer->current_char == '=') {
         lexer->position++;
         lexer->current_char = lexer->input[lexer->position];
-        return (Token){.type = DIVIDE, .value.operator = '/'};
+        return (Token){.type = eq, .value.operator = '='};
     } else if (lexer->current_char == '!') {
         lexer->position++;
         lexer->current_char = lexer->input[lexer->position];
-        return (Token){.type = LPAREN, .value.operator = '('};
+        return (Token){.type = diff, .value.operator = '!'};
     }else {
         char* str_var = NULL;
         int i = 0;
-        while (lexer->current_char != '.' && lexer->current_char != '+' && lexer->current_char != '-' && lexer->current_char != '*' && lexer->current_char != '/' && lexer->current_char != '(' && lexer->current_char != ')' && lexer->current_char != '\0') {
+        while (lexer->current_char != '.' && lexer->current_char != '+' && lexer->current_char != '-' && lexer->current_char != '*' && lexer->current_char != '/' && lexer->current_char != '(' && lexer->current_char != ')' && lexer->current_char != '\0' && lexer->current_char != '<' && lexer->current_char != '>' && lexer->current_char != '=' && lexer->current_char != '!') {
             str_var = (char *)realloc(str_var, (i + 1) * sizeof(char));
             str_var[i] = lexer->current_char;
             i++;
@@ -337,8 +338,6 @@ EvaluationResult evaluate_expression(Lexer *lexer) {
 
     lexer->current_token = lexer_get_next_token(lexer);
     result.result = expr(lexer);
-
-    // Check if there are any remaining tokens, which indicates an error in the input expression.
     if (lexer->current_token.type != 0) {
         result.error = "Invalid expression syntax";
     }
@@ -346,27 +345,20 @@ EvaluationResult evaluate_expression(Lexer *lexer) {
     return result;
 }
 
+
+
 void Calc(TreeNode *root, char **token) {
     int i;
     char *expr = NULL;
-
-    // Calculate the length of the expression
     int exprLength = 0;
     for (i = 1; token[i] != NULL; i++) {
         exprLength += strlen(token[i]);
     }
-
-    // Allocate memory for the expression
-    expr = (char *)malloc(exprLength + 1); // +1 for the null terminator
-
-    // Concatenate tokens to form the expression
-    expr[0] = '\0'; // Ensure the string starts empty
+    expr = (char *)malloc(exprLength + 1);
+    expr[0] = '\0';
     for (i = 1; token[i] != NULL; i++) {
         strcat(expr, token[i]);
     }
-
-    // Print or process the expression as needed
-
     size_t len = strlen(expr);
     if (len > 0 && expr[len - 1] == '\n') {
         expr[len - 1] = '\0';
@@ -378,10 +370,8 @@ void Calc(TreeNode *root, char **token) {
     if (result.error) {
         printf("Error: %s\n", result.error);
     } else {
-        printf("Result: %g\n", result.result);
+        printf("Result: %g \n", result.result);
     }
-
-    // Free the allocated memory
     free(expr);
 }
 
@@ -403,8 +393,6 @@ void token(char *line, char ***tokens) {
 Statement parse_statement(char *line) {
     Statement statement;
     token(line, &statement.tokens);
-
-    // Determine the statement type
     if (strcmp(statement.tokens[0], "var") == 0) {
         statement.type = VAR_DECLARATION;
     } else if(strcmp(statement.tokens[0],"input") == 0){
@@ -419,8 +407,8 @@ Statement parse_statement(char *line) {
         statement.type = endWhile;
     }else if(strcmp(statement.tokens[0], "endIf") == 0){
         statement.type = endif;
-    }else{
-        printf("Undefined");
+    }else {
+        printf("Undefined statement type: %s\n", statement.tokens[0]);
     }
 
     return statement;
@@ -451,10 +439,10 @@ void execute_statement(TreeNode **root, Statement statement) {
     }
 }
 
-char *While(TreeNode **root, Statement statement) {
+char *While( Statement statement) {
     int i = 1;
     char *condition = (char *)malloc(1);
-    condition[0] = '\0';  // Initialize an empty string
+    condition[0] = '\0';  
     
     while (statement.tokens[i] != NULL) {
         condition = (char *)realloc(condition, strlen(condition) + strlen(statement.tokens[i]) + 1);
@@ -470,66 +458,72 @@ char *While(TreeNode **root, Statement statement) {
 
 bool evaluate_condition(Lexer *lexer, TreeNode *root, char *condition) {
     lexer_init(lexer, condition, root);
-    EvaluationResult result = evaluate_expression(lexer);
-    if (result.error) {
-        printf("Error in while loop condition: %s\n", result.error);
-        exit(1);
+    lexer->current_token = lexer_get_next_token(lexer);
+
+    double left_operand = expr(lexer);
+    TokenType operator_type = lexer->current_token.type;
+    lexer->current_token = lexer_get_next_token(lexer);
+
+    double right_operand = expr(lexer);
+    lexer->current_token = lexer_get_next_token(lexer);
+    switch (operator_type) {
+        case less:
+            return left_operand < right_operand;
+        case less_eq:
+            return left_operand <= right_operand;
+        case great:
+            return left_operand > right_operand;
+        case great_eq:
+            return left_operand >= right_operand;
+        case eq:
+            return left_operand == right_operand;
+        case diff:
+            return left_operand != right_operand;
+        default:
+            printf("Error: Invalid operator in condition\n");
+            exit(1);
     }
-    printf("%d",result.result);
-    return result.result != 0.0;
 }
 
-// Modify the While_execute function to handle while loops
-void While_execute(char **while_if, int count, TreeNode **root) {
+void While_execute(char *condition, char **while_if, int count, TreeNode **root) {
     Lexer lexer;
-    for (int i = 0; i < count; i++) {
-        Statement statement = parse_statement(while_if[i]);
+    int i = 0;
+    bool condition_result = evaluate_condition(&lexer, *root, condition);
+    while (condition_result) {
+        for (i = 0; i < count; i++) {
+            Statement statement = parse_statement(while_if[i]);
 
-        // Check if it's the condition of a while loop
-        if (statement.type == WHILE_LOOP) {
-            // Get the condition from the statement
-            char *condition = While(root, statement);
-            printf("%s",condition);
-            // Evaluate the condition
-            while (evaluate_condition(&lexer, *root, condition)) {
-                // Execute the body of the while loop
-                for (i++; i < count && strcmp(while_if[i], "endWhile") != 0; i++) {
-                    Statement loopStatement = parse_statement(while_if[i]);
-                    execute_statement(root, loopStatement);
-
-                    // Free allocated memory for loop statement tokens
-                    for (int j = 0; loopStatement.tokens[j] != NULL; j++) {
-                        free(loopStatement.tokens[j]);
-                    }
-                    free(loopStatement.tokens);
-                }
-                // Skip 'endWhile' statement
-                i++;
+            if (statement.type == WHILE_LOOP) {
+                char *nested_condition = While( statement);
+                While_execute(nested_condition, while_if + i + 1, count - i - 1, root);
+                free(nested_condition);
+                break; 
             }
 
-            // Free memory for the condition
-            free(condition);
-        } else {
-            // Execute non-while-loop statements
             execute_statement(root, statement);
+            condition_result = 0;
+            for (int j = 0; statement.tokens[j] != NULL; j++) {
+                free(statement.tokens[j]);
+            }
+            free(statement.tokens);
         }
-
-        // Free allocated memory for tokens
-        for (int j = 0; statement.tokens[j] != NULL; j++) {
-            free(statement.tokens[j]);
-        }
-        free(statement.tokens);
+        condition_result = evaluate_condition(&lexer, *root, condition);
     }
+
+    free(condition);
 }
+
+
 
 int main() {
     FILE *file = fopen("calculator.txt", "r");
     TreeNode *root = NULL;
     char *line;
     int a = 0;
-    char ***while_if = NULL;
+    char **while_if = NULL;
     int j = 0;
     char *condition = NULL;
+    int k = 0;
     while (1) {
         line = (char *)malloc(sizeof(char));
         int i = 0;
@@ -544,13 +538,12 @@ int main() {
                     line = (char *)realloc(line, (i + 1) * sizeof(char));
                 }
             }
+            line[i] = '\0';
         }
 
         if (c == EOF) {
             break;
         }
-
-        line[i] = '\0';
         while (a != 0){
             while ((c = getc(file)) != ';') {
                 if (c == EOF) {
@@ -559,23 +552,21 @@ int main() {
                     line[i] = c;
                     i++;
                     line = (char *)realloc(line, (i + 1) * sizeof(char));
+                    line[i] = '\0';
                 }
             }
             if (a == 1) {
-                while_if = (char ***)realloc(while_if, (j + 1) * sizeof(char **));
-                while_if[j] = (char **)malloc((i + 1) * sizeof(char *));
-                for (int k = 0; k < i; k++) {
-                    while_if[j][k] = strdup(&line[k]);
-                }
-                while_if[j][i] = NULL;
+                while_if = (char **)realloc(while_if, (j + 1) * sizeof(char *));
+                while_if[j] = strdup(line);
                 j++;
+                while_if[j] = NULL;
                 goto label;
             }
         }
         Statement statement = parse_statement(line);
         if (statement.type == WHILE_LOOP) {
             a = 1;
-            condition = While(&root,statement);
+            condition = While(statement);
         }
         execute_statement(&root, statement);
         label:
@@ -586,21 +577,17 @@ int main() {
             }
         }
         free(line);
-        getc(file);
-    }
-
-    if (a == 3) {
-        While_execute(*while_if, j, &root);
-    }
-
-    // Free allocated memory for statements
-    for (int i = 0; i < j; i++) {
-        for (int k = 0; while_if[i][k] != NULL; k++) {
-            free(while_if[i][k]);
+        if (a == 3) {
+            While_execute(condition,while_if, j, &root);
+            a = 0;
+            j = 0;
+            for (int i = 0; i < j; i++) {
+                free(while_if[i]);
+            }
+            free(while_if);
         }
-        free(while_if[i]);
     }
-    free(while_if);
+
 
     Deallocate(root);
     fclose(file);
