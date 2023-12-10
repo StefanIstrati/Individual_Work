@@ -12,4 +12,4 @@ $(exec): $(objects)
 
 clean:
 	del /Q /F calculator.exe
-	del /Q /F src\lexer.o src\token.o src\main.o src\types.o src\read.o src\parser.o src\interpretor.o
+	del /Q /F src\lexer.o src\token.o src\main.o src\read.o src\parser.o src\interpretor.o
