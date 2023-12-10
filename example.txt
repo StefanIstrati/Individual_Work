@@ -1,0 +1,16 @@
+int a = 5;
+float b = 2;
+while (b < 10)
+if (a > 8)
+b = b + 1;
+else
+b = b + 2.3 - 6;
+a = a + 1;
+endif;
+endwhile;
+print(b);
+b = b + 1;
+print(b);
+int c = 6;
+c = (c + 1) * 2;
+print(a);
